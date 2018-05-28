@@ -1,0 +1,498 @@
+---
+title: "初窥爬虫入门"
+subtitle: ""
+author: "杜亚磊"
+date: '`r Sys.Date()`'
+output:
+  xaringan::moon_reader:
+    css: zh-CN.css 
+    lib_dir: libs
+    chakra: remark.min.js
+    nature:
+      highlightStyle: github
+      highlightLines: true
+      countIncrementalSlides: false
+---
+
+```{r setup, include=FALSE} 
+options(htmltools.dir.version = FALSE)
+options(servr.daemon = TRUE)
+```
+
+
+# 主要内容
+
+1. 为什么要学习爬虫？ 爬虫可以做什么？
+
+2. 爬虫基础知识
+  - HMTL + CSS + JavaScript
+  - 解析: Xpath + CSS选择器 + 正则表达式
+  - 编程工具的实现(R & Python)
+
+3. 进阶 - 获取动态加载的数据
+  - 接口查找: 巧用浏览器的开发者工具
+  - 接口破解: 前端无秘密
+  - APP端接口攻坚
+
+4. 更多可供探索的想法...
+  - 接口自动化发现？
+  - 内容自动化抽取？
+
+---
+class: center, middle, inverse
+
+# 为什么要学习爬虫？
+
+## 悲伤的故事
+
+---
+
+# 爬虫可以做什么？
+
+
+自动化搜集数据  & 极速操作
+
+- OA 系统自动打卡
+
+- 关注贴子的更新，关注房价的变动
+
+- 抢课 + 抢票 + 秒杀
+
+[知乎: 利用爬虫技术能做到哪些很酷很有趣很有用的事情？](https://www.zhihu.com/question/27621722)
+
+注意: [违反价值观的事不要做]()
+
+---
+# 操作步骤
+
+- 下载网页
+
+可能是最困难的部分，涉及*链接或接口的查找*，和*权限验证*等。
+
+- 解析网页
+
+相对简单的过程，正则表达和Xpath足以应付各种情况。
+
+- 处理，分析和展示(见后续的几场演讲)
+
+---
+
+# 网页
+
+一个网页的源代码是包含 HTML, CSS 和 JavaScript 的纯文本。
+
+- HTML: 标记语言。只有语法，没有变量和逻辑，不能称之为~~编程语言~~。
+
+- CSS: 控制元素的展现形式
+
+- JavaScript: 操作HTML中元素的增删改
+
+一般来说，数据都是在HTML元素中(否则你看不见它)。
+
+---
+
+# HTML
+
+- HTML源码:
+
+```html
+<html>
+  <h1>这是个一级标题</h1>
+  <a id="wth" href="https://cosx.org/">统计之都</a>
+</html>
+```
+
+
+- 效果:
+
+<div style="background:#f8f8f8">
+<h1>这是个一级标题</h1>
+  <a id="wth" href="https://cosx.org/">统计之都</a>
+</div>
+
+
+.footnote[
+学习资料: [HTML 教程](http://www.w3school.com.cn/html/index.asp)
+]
+
+---
+
+# 查看网页代码
+
+- 你看到的网页片段
+
+![](pic/xiaoshengke.png)
+
+- 对应的源码。在浏览器中，`右键 -> 查看网页源码`。
+
+![](pic/xiaoshengke_source.png)
+
+.footnote[
+网页地址: https://movie.douban.com/top250
+]
+
+---
+
+# 下载网页
+
+```{r eval=FALSE}
+html_lines = readLines('https://movie.douban.com/top250')
+# html_lines = RCurl::getURL('https://movie.douban.com/top250')
+doc = paste0(html_lines, collapse = '')
+```
+
+Python中的标配是`requests`模块。
+```python
+import requests
+doc = requests.get('https://movie.douban.com/top250')
+```
+
+---
+
+
+# 解析: 正则
+
+正则表达式: 描述字符规则的工具，可用于**查找**，**抽取**，**替换**等目的。
+
+例子:
+
+```{r}
+gsub('.*>(.*?)<.*', '\\1', 
+     '<span class="title">肖生克的救赎</span>', perl=T)
+```
+
+
+.footnote[
+学习资料:
+
+[1] [正则表达式30分钟入门教程](http://deerchao.net/tutorials/regex/regex.htm)
+
+[2] [R语言中的正则表达式](https://github.com/yihui/r-ninja/blob/master/04-character.Rmd#正则表达式)
+
+[3] [正则表达式及R字符串处理之终结版](http://yphuang.github.io/blog/2016/03/15/regular-expression-and-strings-processing-in-R/)
+
+[4] [Python中的re模块](https://docs.python.org/2/library/re.html)
+]
+
+
+---
+# 解析: XPath
+
+根据 DOM 路径(和属性)查找元素。
+
+```{r eval=FALSE, tidy=FALSE}
+library(xml2)
+dom = read_html(doc)
+title_nodes = xml_find_all(dom,
+    './/div[@class="hd"]/a/span[@class="title"][1]')
+xml_text(title_nodes)
+```
+
+```
+ [1] "肖申克的救赎"
+ [2] "霸王别姬"
+ [3] "这个杀手不太冷"
+ [4] "阿甘正传"
+ ......
+```
+
+.footnote[
+学习资料: [XPath 教程](http://www.w3school.com.cn/xpath/index.asp)
+]
+
+
+---
+
+# 解析: CSS选择器
+根据标签属性选择元素。
+
+```{r eval=FALSE}
+library(rvest)
+read_html(doc) %>% 
+  html_nodes('.title') %>% # class="title"的标签
+  html_text()
+```
+
+
+```
+ [1] "肖申克的救赎"
+ [2] " / The Shawshank Redemption"
+ [3] "这个杀手不太冷"
+ [4] " / Léon"
+ [5] "霸王别姬"
+ [6] "阿甘正传"
+ ......
+```
+
+.footnote[
+学习资料: [CSS 元素选择器](http://www.w3school.com.cn/css/css_selector_type.asp)
+]
+
+
+---
+class: center, middle, inverse
+
+
+### 威力: CSS 选择器 ~= Xpath < 正则
+
+### 易用性: CSS 选择器 ~= Xpath > 正则
+
+
+---
+# 一段完整的代码
+
+第一页的25部电影名字：
+
+```{r eval=FALSE}
+library(xml2)
+html_lines = readLines('https://movie.douban.com/top250')
+doc = paste0(html_lines, collapse = '')
+dom = read_html(doc)
+title_nodes = xml_find_all(dom, './/div[@class="hd"]/a/span[@class="title"][1]')
+titles = xml_text(title_nodes)
+# 练习: 使用 XPath(或CSS选择器) 抽取电影的导演，评分等信息
+df_movie = data.frame(title=titles, actor=actor, ...)
+write.csv(df_movie, file='豆瓣Top50电影')
+```
+
+
+---
+class: center, middle, inverse
+
+## 数据动态加载
+
+需要的数据不在下载的 HTML 文件中
+
+
+---
+
+# Ajax
+
+Asynchronous JavaScript and XML. 赋予了网页动态变化的能力，无需重载页面即可获取并渲染新数据。
+
+### 问题
+
+数据通过Ajax加载后，通过JS添加进HTML中。直接下载网页得不到想要的数据。
+
+- COS 主站的文章评论
+
+- 百度搜索时的输入提示
+
+
+.footnote[
+学习资料: [AJAX 教程](http://www.w3school.com.cn/ajax/index.asp)
+]
+
+---
+
+# Ajax
+
+### 解决办法
+通过Chrome的开发者工具(Developer Tools)寻找数据接口
+
+### 因祸得福？
+通常异步加载的数据都是JSON格式，爬到的数据方便解析
+
+.footnote[
+学习资料: [Chrome开发者工具 - Network 面板](https://developers.google.com/web/tools/chrome-devtools/network-performance/resource-loading)
+]
+
+---
+background-image: url(pic/ajax-hospital.png)
+background-size: cover
+class: center, middle, inverse
+
+---
+### 查找接口的实际例子
+
+![img](pic/hospital-network.jpeg)
+
+
+
+- 页面地址: https://wandergis.com/hospital-viz/index.htm
+
+
+- 接口地址: https://wandergis.com/hospital-viz/hospital.geojson
+
+
+---
+class: center, middle, inverse
+
+### 接口加密
+
+接口中的参数，是对输入数据的加密
+
+---
+### 繁体字网: 查看字形演变
+
+http://www.fantizi5.com/zixing/
+
+
+<img src="pic/fantizi.jpeg" height="400px"/>
+
+---
+### 繁体字网: 查看字形演变
+
+- 美: http://www.fantizi5.com/zixing/json/e7be8e.html
+
+- 人: http://www.fantizi5.com/zixing/json/e4baba.html
+
+- 鱼: http://www.fantizi5.com/zixing/json/e9b1bc.html
+
+每个汉字都有对应的编码，如何找到输入汉字对应的编码？
+
+---
+### 繁体字网: 查看字形演变
+
+将 HMTL 文件和相关的 JS 文件全部下载下来(右键 -> 保存网页)，搜索关键字: [www.fantizi5.com/zixing/json](www.fantizi5.com/zixing/json)
+
+---
+### 接口解密
+
+http://www.fantizi5.com/zixing/zixing.js
+
+![hanzi-encode.jpeg](pic/hanzi-encode.jpeg)
+
+```{r}
+char = '美'
+tolower(gsub('%', '', URLencode(char)))
+```
+
+---
+class: center, middle, inverse
+
+### APP 接口
+
+数据存在于手机 APP，没有相应的网站
+
+---
+
+## Charles: 代理服务软件
+
+利用[Charles](https://www.charlesproxy.com/)抓包。
+
+- PC端开启代理服务
+
+- 手机端通过PC代理上网
+
+- 在 PC 上可以看到手机端请求
+
+---
+# Show Charles
+
+![charles 截图](pic/charles.jpeg)
+
+
+---
+class: center, middle, inverse
+
+### 接口验证
+
+仅仅知道接口链接是不够的，还可能有 Cookie 验证
+
+---
+### 微博请求
+
+![img](pic/weibo.jpeg)
+
+---
+class: center, middle, inverse
+
+### 如何完整的模拟浏览器中的请求？
+
+- 了解每个参数的含义
+
+- 阅读 Python/R 的接口文档，找到对应的参数
+
+- 复制粘贴参数值
+
+---
+class: center, middle, inverse
+
+
+# ~~统统不需要~~
+
+### **只需要:**
+
+# [CurlWget](https://chrome.google.com/webstore/detail/curlwget/jmocjfidanebdlinpbcdkcmgdifblncg) + [uncurl](https://github.com/spulec/uncurl)/[curl2r](https://github.com/badbye/curl2r)
+
+---
+### 如何完整的模拟浏览器中的请求？
+
+![img](pic/uncurl.jpeg)
+
+
+---
+### curl2r示例
+
+```bash
+➜  ~ curl2r curl 'https://weibo.com/' -H 'Connection: keep-alive' -H 'Pragma: no-cache' -H 'Cache-Control: no-cache' -H 'Upgrade-Insecure-Requests: 1' -H 'User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36' -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8' -H 'DNT: 1' -H 'Accept-Encoding: gzip, deflate, br' -H 'Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,de;q=0.7' -H 'Cookie: SUB=_2AkMtp2bPf8NxqwJRmP4TyG7haYxxyAHEieKb-5cUJRMxHRl-yT9kqhY9tRB6BidIIMQJAulmzL30KVvwfil9Cl9PkbRZ; SUBP=0033WrSXqPxfM72-Ws9jqgMF55529P9D9WFqwkxNwusr6QQa3YL8I3hv; login_sid_t=4bc5f1117f0e5a3ab65b1760cff0e4c7; cross_origin_proto=SSL; TC-Ugrow-G0=968b70b7bcdc28ac97c8130dd353b55e; TC-V5-G0=ffc89a27ffa5c92ffdaf08972449df02; _s_tentry=-; appkey=; Apache=5583481393644.871.1526610040051; SINAGLOBAL=5583481393644.871.1526610040051; ULV=1526610040073:1:1:1:5583481393644.871.1526610040051:; WB_register_version=3ae140abebd3cc86; YF-Ugrow-G0=ad83bc19c1269e709f753b172bddb094; TC-Page-G0=0dba63c42a7d74c1129019fa3e7e6e7c; UOR=,,www.baidu.com; wb_view_log=1280*8002; WBStorage=5548c0baa42e6f3d|undefined' --compressed
+```
+
+```{r eval=FALSE}
+library(httr)
+GET("https://weibo.com/",
+    add_headers(c(Connection = "keep-alive",
+        Pragma = "no-cache",
+        `Cache-Control` = "no-cache",
+        `Upgrade-Insecure-Requests` = "1",
+        `User-Agent` = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/66.0.3359.181 Safari/537.36",
+        Accept = "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8",
+        DNT = "1", `Accept-Encoding` = "gzip, deflate, br",
+        `Accept-Language` = "zh-CN,zh;q=0.9,en;q=0.8,de;q=0.7")),
+    set_cookies(c(SUB = "_2AkMtp2bPf8NxqwJRmP4TyG7haYxxyAHEieKb-5cUJRMxHRl-yT9kqhY9tRB6BidIIMQJAulmzL30KVvwfil9Cl9PkbRZ",
+        SUBP = "0033WrSXqPxfM72-Ws9jqgMF55529P9D9WFqwkxNwusr6QQa3YL8I3hv",
+        login_sid_t = "4bc5f1117f0e5a3ab65b1760cff0e4c7",
+        cross_origin_proto = "SSL",
+        `TC-Ugrow-G0` = "968b70b7bcdc28ac97c8130dd353b55e",
+        `TC-V5-G0` = "ffc89a27ffa5c92ffdaf08972449df02",
+        `_s_tentry` = "-",
+        appkey = NA,
+```
+
+---
+### 更有趣的应用: Auto-Content Extractor
+
+
+- 场景: 爬取大量网站(比如新闻)
+
+- 问题: 如何自动识别不同网站链接的主要内容(日期，作者...), 免去人工配置 Xpath 路径
+
+---
+### Auto-Content Extractor
+
+非结构化的网页 -> 结构化的数据
+
+人工与智能齐上，规则和模型共舞
+
+[python-goose](https://github.com/grangier/python-goose)
+
+
+---
+### 更有趣的应用: Ajax Killer
+
+- 场景: 大量网站的动态评论接口
+
+- 问题: 如何寻找各个网站的动态接口，免去人工的搜索查询
+
+
+
+---
+### 更有趣的应用: Ajax Killer
+
+- 模拟浏览器行为: 利用Headless Chrome，phantomjs等浏览器，自动访问各个网站，加载js，请求动态接口
+
+- 流量检测: 利用 wireshark 之类的工具，监听浏览器的所有流量请求
+
+- 流量过滤: 找到需要的接口请求
+
+
+---
+class: center, middle
+
+# 提问环节
+
+.footnote[
+email: [yaleidu@163.com](mailto:yaleidu@163.com)
+]
+
